@@ -1,0 +1,291 @@
+(LinOSS) khanhnt@aiotlab-server:/project/khanhnt/mamba.py$ python training_MMAct.py 
+Train:  6901
+Val:  1831
+config: MambaConfig(d_model=128, n_layers=2, dt_rank=8, d_state=16, expand_factor=2, d_conv=4, dt_min=0.001, dt_max=0.1, dt_init='random', dt_scale=1.0, rms_norm_eps=1e-05, base_std=0.02, bias=False, conv_bias=True, inner_layernorms=False, mup=False, mup_base_width=128, pscan=True, use_cuda=False, use_momentum=False, momentum_alpha=0.6, momentum_beta=0.99, use_newton_schulz=False, ns_eps=1e-07)
+Params to learn:
+conv1d.0.weight will be updated
+conv1d.1.weight will be updated
+conv1d.1.bias will be updated
+mamba_momentum.layers.0.mixer.A_log will be updated
+mamba_momentum.layers.0.mixer.D will be updated
+mamba_momentum.layers.0.mixer.in_proj.weight will be updated
+mamba_momentum.layers.0.mixer.conv1d.weight will be updated
+mamba_momentum.layers.0.mixer.conv1d.bias will be updated
+mamba_momentum.layers.0.mixer.x_proj.weight will be updated
+mamba_momentum.layers.0.mixer.dt_proj.weight will be updated
+mamba_momentum.layers.0.mixer.dt_proj.bias will be updated
+mamba_momentum.layers.0.mixer.out_proj.weight will be updated
+mamba_momentum.layers.0.norm.weight will be updated
+mamba_momentum.layers.1.mixer.A_log will be updated
+mamba_momentum.layers.1.mixer.D will be updated
+mamba_momentum.layers.1.mixer.in_proj.weight will be updated
+mamba_momentum.layers.1.mixer.conv1d.weight will be updated
+mamba_momentum.layers.1.mixer.conv1d.bias will be updated
+mamba_momentum.layers.1.mixer.x_proj.weight will be updated
+mamba_momentum.layers.1.mixer.dt_proj.weight will be updated
+mamba_momentum.layers.1.mixer.dt_proj.bias will be updated
+mamba_momentum.layers.1.mixer.out_proj.weight will be updated
+mamba_momentum.layers.1.norm.weight will be updated
+classifier.weight will be updated
+classifier.bias will be updated
+Model parameters: Total=242,724, Trainable=242,724
+Warmup training (10 epochs)...
+Epoch 0/9
+----------
+train Loss: 2.6049 Acc: 0.3243
+val Loss: 2.4648 Acc: 0.3790
+/home/khanhnt/.conda/envs/LinOSS/lib/python3.10/site-packages/torch/optim/lr_scheduler.py:198: UserWarning: The epoch parameter in `scheduler.step()` was not necessary and is being deprecated where possible. Please use `scheduler.step()` to step the scheduler. During the deprecation, if epoch is different from None, the closed form is used instead of the new chainable form, where available. Please open an issue if you are unable to replicate your use case: https://github.com/pytorch/pytorch/issues/new/choose.
+  warnings.warn(EPOCH_DEPRECATION_WARNING, UserWarning)
+
+Epoch 1/9
+----------
+train Loss: 2.0487 Acc: 0.4922
+val Loss: 2.4506 Acc: 0.3867
+
+Epoch 2/9
+----------
+train Loss: 1.8658 Acc: 0.5489
+val Loss: 2.2452 Acc: 0.4741
+
+Epoch 3/9
+----------
+train Loss: 1.7380 Acc: 0.6089
+val Loss: 2.2264 Acc: 0.4691
+
+Epoch 4/9
+----------
+train Loss: 1.6531 Acc: 0.6389
+val Loss: 2.2039 Acc: 0.5139
+
+Epoch 5/9
+----------
+train Loss: 1.5718 Acc: 0.6777
+val Loss: 1.9885 Acc: 0.4970
+
+Epoch 6/9
+----------
+train Loss: 1.5088 Acc: 0.7055
+val Loss: 1.9773 Acc: 0.5259
+
+Epoch 7/9
+----------
+train Loss: 1.4273 Acc: 0.7424
+val Loss: 2.2263 Acc: 0.5287
+
+Epoch 8/9
+----------
+train Loss: 1.3764 Acc: 0.7681
+val Loss: 1.9686 Acc: 0.5653
+
+Epoch 9/9
+----------
+train Loss: 1.3297 Acc: 0.7844
+val Loss: 2.0376 Acc: 0.5833
+
+Training complete in 8m 10s
+Best val Acc: 0.583288
+Main training (40 epochs)...
+Epoch 0/39
+----------
+train Loss: 1.2963 Acc: 0.7974
+val Loss: 1.8662 Acc: 0.5893
+
+Epoch 1/39
+----------
+train Loss: 1.2535 Acc: 0.8138
+val Loss: 1.8883 Acc: 0.6057
+
+Epoch 2/39
+----------
+train Loss: 1.2208 Acc: 0.8270
+val Loss: 2.0378 Acc: 0.5789
+
+Epoch 3/39
+----------
+train Loss: 1.1987 Acc: 0.8325
+val Loss: 1.8668 Acc: 0.6068
+
+Epoch 4/39
+----------
+train Loss: 1.1808 Acc: 0.8403
+val Loss: 1.8450 Acc: 0.6275
+
+Epoch 5/39
+----------
+train Loss: 1.1513 Acc: 0.8576
+val Loss: 1.8896 Acc: 0.6237
+
+Epoch 6/39
+----------
+train Loss: 1.1388 Acc: 0.8625
+val Loss: 2.0787 Acc: 0.5904
+
+Epoch 7/39
+----------
+train Loss: 1.1180 Acc: 0.8693
+val Loss: 1.7961 Acc: 0.6193
+
+Epoch 8/39
+----------
+train Loss: 1.0921 Acc: 0.8813
+val Loss: 1.9242 Acc: 0.6199
+
+Epoch 9/39
+----------
+train Loss: 1.0874 Acc: 0.8794
+val Loss: 1.8173 Acc: 0.6297
+
+Epoch 10/39
+----------
+train Loss: 1.0735 Acc: 0.8868
+val Loss: 1.9867 Acc: 0.6374
+
+Epoch 11/39
+----------
+train Loss: 1.0556 Acc: 0.8938
+val Loss: 2.0265 Acc: 0.6002
+
+Epoch 12/39
+----------
+train Loss: 1.0374 Acc: 0.9058
+val Loss: 1.8263 Acc: 0.6401
+
+Epoch 13/39
+----------
+train Loss: 1.0176 Acc: 0.9097
+val Loss: 1.8447 Acc: 0.6466
+
+Epoch 14/39
+----------
+train Loss: 1.0116 Acc: 0.9118
+val Loss: 1.9842 Acc: 0.6390
+
+Epoch 15/39
+----------
+train Loss: 0.9988 Acc: 0.9138
+val Loss: 1.9666 Acc: 0.6461
+
+Epoch 16/39
+----------
+train Loss: 0.9884 Acc: 0.9194
+val Loss: 1.8113 Acc: 0.6685
+
+Epoch 17/39
+----------
+train Loss: 0.9774 Acc: 0.9220
+val Loss: 1.9073 Acc: 0.6395
+
+Epoch 18/39
+----------
+train Loss: 0.9623 Acc: 0.9322
+val Loss: 1.9099 Acc: 0.6472
+
+Epoch 19/39
+----------
+train Loss: 0.9622 Acc: 0.9312
+val Loss: 1.8874 Acc: 0.6499
+
+Epoch 20/39
+----------
+train Loss: 0.9519 Acc: 0.9328
+val Loss: 1.8096 Acc: 0.6668
+
+Epoch 21/39
+----------
+train Loss: 0.9320 Acc: 0.9400
+val Loss: 1.8654 Acc: 0.6357
+
+Epoch 22/39
+----------
+train Loss: 0.9004 Acc: 0.9526
+val Loss: 1.9091 Acc: 0.6384
+
+Epoch 23/39
+----------
+train Loss: 0.8824 Acc: 0.9646
+val Loss: 1.8243 Acc: 0.6619
+
+Epoch 24/39
+----------
+train Loss: 0.8830 Acc: 0.9629
+val Loss: 1.8149 Acc: 0.6516
+
+Epoch 25/39
+----------
+train Loss: 0.8747 Acc: 0.9641
+val Loss: 1.8729 Acc: 0.6466
+
+Epoch 26/39
+----------
+train Loss: 0.8735 Acc: 0.9658
+val Loss: 1.8338 Acc: 0.6570
+
+Epoch 27/39
+----------
+train Loss: 0.8479 Acc: 0.9713
+val Loss: 1.8699 Acc: 0.6537
+
+Epoch 28/39
+----------
+train Loss: 0.8438 Acc: 0.9751
+val Loss: 1.8441 Acc: 0.6455
+
+Epoch 29/39
+----------
+train Loss: 0.8354 Acc: 0.9764
+val Loss: 1.9131 Acc: 0.6439
+
+Epoch 30/39
+----------
+train Loss: 0.8393 Acc: 0.9725
+val Loss: 1.8144 Acc: 0.6472
+
+Epoch 31/39
+----------
+train Loss: 0.8274 Acc: 0.9794
+val Loss: 1.8135 Acc: 0.6554
+
+Epoch 32/39
+----------
+train Loss: 0.8160 Acc: 0.9830
+val Loss: 1.8318 Acc: 0.6559
+
+Epoch 33/39
+----------
+train Loss: 0.8113 Acc: 0.9848
+val Loss: 1.9043 Acc: 0.6324
+
+Epoch 34/39
+----------
+train Loss: 0.8103 Acc: 0.9842
+val Loss: 1.8732 Acc: 0.6510
+
+Epoch 35/39
+----------
+train Loss: 0.8085 Acc: 0.9845
+val Loss: 1.8273 Acc: 0.6466
+
+Epoch 36/39
+----------
+train Loss: 0.8069 Acc: 0.9839
+val Loss: 1.8661 Acc: 0.6445
+
+Epoch 37/39
+----------
+train Loss: 0.7993 Acc: 0.9872
+val Loss: 1.8203 Acc: 0.6559
+
+Epoch 38/39
+----------
+train Loss: 0.7947 Acc: 0.9877
+val Loss: 1.8101 Acc: 0.6570
+
+Epoch 39/39
+----------
+train Loss: 0.7922 Acc: 0.9888
+val Loss: 1.8344 Acc: 0.6532
+
+Training complete in 31m 2s
+Best val Acc: 0.668487
+Final Validation Accuracy: 0.6673948661933369
+Test Accuracy (using val set): 0.6700, Test Loss: 1.8191

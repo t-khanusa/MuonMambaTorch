@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from mambapy.pscan import pscan, pscan_momentum_ns5, pscan_momentum
+from mambapy.pscan import pscan, pscan_momentum
 
 """
 
@@ -57,16 +57,11 @@ class MambaConfig:
     use_cuda: bool = False # use official CUDA implementation when training (not compatible with (b)float16)
     
     # Momentum parameters
-    use_momentum: bool = True # enable momentum in selective scan
-    momentum_alpha: float = 0.99 # alpha parameter for momentum equation
-    momentum_beta: float = 0.6 # beta parameter for momentum equation
-    
-    # Newton-Schulz parameters
-    use_newton_schulz: bool = False # enable Newton-Schulz orthogonalization after momentum
-    ns_eps: float = 1e-7 # epsilon parameter for Newton-Schulz stability
+    use_momentum: bool = False # enable momentum in selective scan
+    momentum_alpha: float = 0.1 # alpha parameter for momentum equation
+    momentum_beta: float = 0.9 # beta parameter for momentum equation
 
     def __post_init__(self):
-
         self.d_inner = self.expand_factor * self.d_model # E*D = ED in comments
 
         if self.dt_rank == 'auto':
@@ -81,7 +76,6 @@ class Mamba(nn.Module):
         super().__init__()
 
         self.config = config
-        print(f"config: {self.config}")
 
         self.layers = nn.ModuleList([ResidualBlock(config) for _ in range(config.n_layers)])
 
@@ -275,10 +269,7 @@ class MambaBlock(nn.Module):
             delta = delta.transpose(1, 2)
             delta = F.softplus(delta + self.dt_proj.bias)
 
-            if self.config.use_momentum and self.config.use_newton_schulz:
-                # Use new NS5 version with detaching first 4 steps
-                y = self.selective_scan_with_momentum_ns5(x, delta, A, B, C, D)
-            elif self.config.use_momentum:
+            if self.config.use_momentum:
                 y = self.selective_scan_with_momentum(x, delta, A, B, C, D)
             elif self.config.pscan:
                 y = self.selective_scan(x, delta, A, B, C, D)
@@ -310,41 +301,8 @@ class MambaBlock(nn.Module):
 
         return y
     
-    
-    def selective_scan_with_momentum_ns5(self, x, delta, A, B, C, D):
-        # x : (B, L, ED) - this is u_t
-        # Δ : (B, L, ED)
-        # A : (ED, N)
-        # B : (B, L, N)
-        # C : (B, L, N)
-        # D : (ED)
-
-        # y : (B, L, ED)
-
-        deltaA = torch.exp(delta.unsqueeze(-1) * A) # (B, L, ED, N)
-        
-        # Compute B broadcasted to (B, L, ED, N) for the new function
-        # B is (B, L, N), we broadcast it to (B, L, ED, N)
-        deltaB = delta.unsqueeze(-1) * B.unsqueeze(2) # (B, L, ED, N)
-
-        BX = deltaB * (x.unsqueeze(-1)) # (B, L, ED, N)
-        
-        # Use momentum + Newton-Schulz5 parallel scan with new equations:
-        # b_ortho = Newton-Schulz5(alpha*BX)  # applied to alpha*BX, each (D, N) matrix
-        # v_t = alpha*v_{t-1} + b_t_ortho
-        # h_t = deltaA*h_{t-1} + v_t
-        # y_t = C_t*h_t + D_t*u_t
-        hs = pscan_momentum_ns5(deltaA, BX, self.config.momentum_alpha, self.config.momentum_beta)
-
-        y = (hs @ C.unsqueeze(-1)).squeeze(3) # (B, L, ED, N) @ (B, L, N, 1) -> (B, L, ED, 1)
-
-        y = y + D * x
-
-        return y
-
-
     def selective_scan_with_momentum(self, x, delta, A, B, C, D):
-        # x : (B, L, ED) - this is u_t
+        # x : (B, L, ED)
         # Δ : (B, L, ED)
         # A : (ED, N)
         # B : (B, L, N)
@@ -354,17 +312,11 @@ class MambaBlock(nn.Module):
         # y : (B, L, ED)
 
         deltaA = torch.exp(delta.unsqueeze(-1) * A) # (B, L, ED, N)
-        
-        # Compute B broadcasted to (B, L, ED, N) for the new function
-        # B is (B, L, N), we broadcast it to (B, L, ED, N)
         deltaB = delta.unsqueeze(-1) * B.unsqueeze(2) # (B, L, ED, N)
 
         BX = deltaB * (x.unsqueeze(-1)) # (B, L, ED, N)
         
-        # Use momentum + parallel scan with new equations:
-        # v_t = beta * v_{t-1} + alpha * BX_t
-        # h_t = deltaA * h_{t-1} + v_t
-        # y_t = C_t * h_t + D_t * u_t
+        # Use momentum-aware parallel scan
         hs = pscan_momentum(deltaA, BX, self.config.momentum_alpha, self.config.momentum_beta)
 
         y = (hs @ C.unsqueeze(-1)).squeeze(3) # (B, L, ED, N) @ (B, L, N, 1) -> (B, L, ED, 1)
@@ -461,92 +413,57 @@ class MambaBlock(nn.Module):
         return output, cache
 
     def ssm_step(self, x, h):
-        # x : (B, ED)
-        # h : (B, ED, N) or ((B, ED, N), (B, ED, N)) for (h, v)
+        # x : (B, ED)
+        # h : (B, ED, N)
 
-        # y : (B, ED)
-        # h : (B, ED, N) or ((B, ED, N), (B, ED, N)) for (h, v)
+        # y : (B, ED)
+        # h : (B, ED, N)
 
-        A = -torch.exp(self.A_log.float()) # (ED, N)
+        A = -torch.exp(self.A_log.float()) # (ED, N) # todo : ne pas le faire tout le temps, puisque c'est indépendant de la timestep
         D = self.D.float()
 
-        deltaBC = self.x_proj(x) # (B, dt_rank+2*N)
+        deltaBC = self.x_proj(x) # (B, dt_rank+2*N)
 
-        delta, B, C = torch.split(deltaBC, [self.config.dt_rank, self.config.d_state, self.config.d_state], dim=-1)
+        delta, B, C = torch.split(deltaBC, [self.config.dt_rank, self.config.d_state, self.config.d_state], dim=-1) # (B, dt_rank), (B, N), (B, N)
         delta, B, C = self._apply_layernorms(delta, B, C)
-        delta = F.softplus(self.dt_proj(delta)) # (B, ED)
+        delta = F.softplus(self.dt_proj(delta)) # (B, ED)
 
-        deltaA = torch.exp(delta.unsqueeze(-1) * A) # (B, ED, N)
-        deltaB = delta.unsqueeze(-1) * B.unsqueeze(1) # (B, ED, N)
+        deltaA = torch.exp(delta.unsqueeze(-1) * A) # (B, ED, N)
+        deltaB = delta.unsqueeze(-1) * B.unsqueeze(1) # (B, ED, N)
 
-        BX = deltaB * (x.unsqueeze(-1)) # (B, ED, N)
+        BX = deltaB * (x.unsqueeze(-1)) # (B, ED, N)
 
-        if self.config.use_momentum and self.config.use_newton_schulz:
-            # Muon-inspired inference with Newton-Schulz
-            if h is None or (isinstance(h, tuple) and h[0] is None):
-                h = torch.zeros(x.size(0), self.config.d_inner, self.config.d_state, device=deltaA.device)
-                v = torch.zeros(x.size(0), self.config.d_inner, self.config.d_state, device=deltaA.device)
-            else:
-                if isinstance(h, tuple):
-                    h, v = h
-                else:
-                    v = torch.zeros(x.size(0), self.config.d_inner, self.config.d_state, device=deltaA.device)
-            
-            # Step 1: b_t = alpha * BX
-            b_t = self.config.muon_alpha * BX  # (B, ED, N)
-            
-            # Step 2: b_t_ortho = Newton-Schulz(b_t)
-            # Apply NS to the full (ED, N) matrix for each batch element
-            from mambapy.pscan import PScanMomentumNS5
-            
-            # b_t has shape (B, ED, N)
-            # Newton-Schulz should be applied to each (ED, N) matrix independently per batch
-            # newtonschulz5 expects input of shape (B, D, N) which matches our b_t shape
-            # b_t_ortho = PScanMomentumNS5.apply(b_t, eps=self.config.ns_eps)  # (B, ED, N)
-            b_ortho_batch_bf16, _ = PScanMomentumNS5._newton_schulz_forward_data(
-                b_t, self.config.ns_eps)
-            b_t_ortho = b_ortho_batch_bf16.to(torch.float32)
-            
-            # Step 3: v_t = beta * v_{t-1} + b_t_ortho
-            v = self.config.muon_beta * v + b_t_ortho
-            
-            # Step 4: h_t = deltaA * h_{t-1} + v_t
-            h = deltaA * h + v
-            
-            y = (h @ C.unsqueeze(-1)).squeeze(2)  # (B, ED, N) @ (B, N, 1) -> (B, ED)
-            y = y + D * x
-            
-            return y, (h, v)
-            
-        elif self.config.use_momentum:
-            # Momentum without NS
-            if h is None or (isinstance(h, tuple) and h[0] is None):
-                h = torch.zeros(x.size(0), self.config.d_inner, self.config.d_state, device=deltaA.device)
-                v = torch.zeros(x.size(0), self.config.d_inner, self.config.d_state, device=deltaA.device)
-            else:
-                if isinstance(h, tuple):
-                    h, v = h
-                else:
-                    v = torch.zeros(x.size(0), self.config.d_inner, self.config.d_state, device=deltaA.device)
-            
-            # v_t = beta * v_{t-1} + alpha * BX_t
-            v = self.config.muon_beta * v + self.config.muon_alpha * BX
-            # h_t = deltaA * h_{t-1} + v_t
-            h = deltaA * h + v
-            
-            y = (h @ C.unsqueeze(-1)).squeeze(2)
-            y = y + D * x
-            
-            return y, (h, v)
-            
-        else:
-            # Standard Mamba (no momentum)
+        if self.config.use_momentum:
+            # For momentum, we need to track both h and v
             if h is None:
-                h = torch.zeros(x.size(0), self.config.d_inner, self.config.d_state, device=deltaA.device)
+                h = torch.zeros(x.size(0), self.config.d_inner, self.config.d_state, device=deltaA.device) # (B, ED, N)
+                v = torch.zeros(x.size(0), self.config.d_inner, self.config.d_state, device=deltaA.device) # (B, ED, N)
+            else:
+                # h should be a tuple (h, v) when using momentum
+                if isinstance(h, tuple):
+                    h, v = h
+                else:
+                    # If h is not a tuple, initialize v
+                    v = torch.zeros(x.size(0), self.config.d_inner, self.config.d_state, device=deltaA.device)
             
-            h = deltaA * h + BX
+            # Momentum equations:
+            # v_t = beta * v_{t-1} + alpha * BX_t
+            # h_t = deltaA * h_{t-1} + v_t
+            v = self.config.momentum_beta * v + self.config.momentum_alpha * BX
+            h = deltaA * h + v
+            
+            y = (h @ C.unsqueeze(-1)).squeeze(2) # (B, ED, N) @ (B, N, 1) -> (B, ED, 1)
+            y = y + D * x
+            
+            return y, (h, v)
+        else:
+            if h is None:
+                h = torch.zeros(x.size(0), self.config.d_inner, self.config.d_state, device=deltaA.device) # (B, ED, N)
+            
+            h = deltaA * h + BX # (B, ED, N)
 
-            y = (h @ C.unsqueeze(-1)).squeeze(2)
+            y = (h @ C.unsqueeze(-1)).squeeze(2) # (B, ED, N) @ (B, N, 1) -> (B, ED, 1)
+
             y = y + D * x
 
             return y, h

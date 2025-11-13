@@ -3,3 +3,6 @@
 old_tests/
 *.egg-info/
 build/
+.DS_Store
+*.pyc
+.pytest_cache/

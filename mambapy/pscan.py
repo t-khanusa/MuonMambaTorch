@@ -207,7 +207,7 @@ class PScan(torch.autograd.Function):
 pscan = PScan.apply
 
 
-class PScanMomentumNS5(torch.autograd.Function):
+class PScanMomentumNS1(torch.autograd.Function):
     
     # Newton-Schulz constants (optimized for 1 iteration)
     NS_A = 3.4445
@@ -243,8 +243,8 @@ class PScanMomentumNS5(torch.autograd.Function):
 
         # Newton-Schulz iteration (1 step)
         A_ns = X_work @ X_work.transpose(-2, -1)
-        B_ns = PScanMomentumNS5.NS_B * A_ns + PScanMomentumNS5.NS_C * (A_ns @ A_ns)
-        X_next = PScanMomentumNS5.NS_A * X_work + B_ns @ X_work
+        B_ns = PScanMomentumNS1.NS_B * A_ns + PScanMomentumNS1.NS_C * (A_ns @ A_ns)
+        X_next = PScanMomentumNS1.NS_A * X_work + B_ns @ X_work
 
         X_out_bf16 = X_next.transpose(-2, -1) if transposed else X_next
         
@@ -257,7 +257,7 @@ class PScanMomentumNS5(torch.autograd.Function):
         Optimized manual backward for Newton-Schulz.
         """
         (G_bf16, X_norm_bf16, X_work, A_ns, B_ns, s, norm, transposed, out_dtype) = saved_tensors
-        a, b, c = PScanMomentumNS5.NS_A, PScanMomentumNS5.NS_B, PScanMomentumNS5.NS_C
+        a, b, c = PScanMomentumNS1.NS_A, PScanMomentumNS1.NS_B, PScanMomentumNS1.NS_C
         
         gradY_bf16 = gradY.to(torch.bfloat16)
 
@@ -364,7 +364,7 @@ class PScanMomentumNS5(torch.autograd.Function):
             ns_saved_tensors = None
         else:
             # Training path with saved intermediates
-            b_ortho_batch_bf16, ns_saved_tensors = PScanMomentumNS5._newton_schulz_forward_data(
+            b_ortho_batch_bf16, ns_saved_tensors = PScanMomentumNS1._newton_schulz_forward_data(
                 alpha_BX_batch, eps=1e-7
             )
             b_ortho_batch = b_ortho_batch_bf16.to(torch.float32)
@@ -425,7 +425,7 @@ class PScanMomentumNS5(torch.autograd.Function):
         alpha_BX = alpha * BX
         alpha_BX_batch = alpha_BX.transpose(1, 2).contiguous()
         
-        b_ortho_batch_bf16, _ = PScanMomentumNS5._newton_schulz_forward_data(
+        b_ortho_batch_bf16, _ = PScanMomentumNS1._newton_schulz_forward_data(
             alpha_BX_batch, eps=1e-7
         )
         b_ortho = b_ortho_batch_bf16.to(torch.float32).transpose(1, 2)
@@ -470,14 +470,14 @@ class PScanMomentumNS5(torch.autograd.Function):
         grad_b_ortho_batch = grad_b_ortho.transpose(1, 2).contiguous()
         
         if ns_saved_tensors is not None:
-            grad_alpha_BX_batch = PScanMomentumNS5._newton_schulz_backward_data(
+            grad_alpha_BX_batch = PScanMomentumNS1._newton_schulz_backward_data(
                 grad_b_ortho_batch, ns_saved_tensors
             )
         else:
             # Fallback: use autograd (slower, but correct)
             alpha_BX_batch_req = alpha_BX_batch.detach().requires_grad_(True)
             with torch.enable_grad():
-                b_ortho_recomp, _ = PScanMomentumNS5._newton_schulz_forward_data(
+                b_ortho_recomp, _ = PScanMomentumNS1._newton_schulz_forward_data(
                     alpha_BX_batch_req, eps=1e-7
                 )
                 b_ortho_recomp = b_ortho_recomp.to(grad_b_ortho_batch.dtype)
@@ -499,7 +499,7 @@ class PScanMomentumNS5(torch.autograd.Function):
         # None for alpha and beta (hyperparameters)
         return grad_A, grad_X, None, None
 
-pscan_momentum_ns5 = PScanMomentumNS5.apply
+pscan_momentum_ns5 = PScanMomentumNS1.apply
 
 
 class PScanMomentum(torch.autograd.Function):

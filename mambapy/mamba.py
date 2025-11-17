@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from mambapy.pscan import pscan, pscan_momentum_ns5, pscan_momentum
+from mambapy.pscan import pscan, pscan_momentum_ns1, pscan_momentum
 
 """
 
@@ -334,7 +334,7 @@ class MambaBlock(nn.Module):
         # v_t = alpha*v_{t-1} + b_t_ortho
         # h_t = deltaA*h_{t-1} + v_t
         # y_t = C_t*h_t + D_t*u_t
-        hs = pscan_momentum_ns5(deltaA, BX, self.config.momentum_alpha, self.config.momentum_beta)
+        hs = pscan_momentum_ns1(deltaA, BX, self.config.momentum_alpha, self.config.momentum_beta)
 
         y = (hs @ C.unsqueeze(-1)).squeeze(3) # (B, L, ED, N) @ (B, L, N, 1) -> (B, L, ED, 1)
 
